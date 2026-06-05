@@ -34,6 +34,38 @@ export function symbolsToComplexArray(symbols: ComplexSample[]): ComplexArray {
 }
 
 export function complexDft(samples: ComplexArray): ComplexArray {
+  if (isPowerOfTwo(samples.i.length)) {
+    return complexFft(samples);
+  }
+
+  return complexDftSlow(samples);
+}
+
+export function complexIdft(samples: ComplexArray): ComplexArray {
+  if (isPowerOfTwo(samples.i.length)) {
+    return complexIfft(samples);
+  }
+
+  return complexIdftSlow(samples);
+}
+
+export function complexFft(samples: ComplexArray): ComplexArray {
+  return transformRadix2(samples, false);
+}
+
+export function complexIfft(samples: ComplexArray): ComplexArray {
+  const output = transformRadix2(samples, true);
+  const scale = 1 / output.i.length;
+
+  for (let index = 0; index < output.i.length; index += 1) {
+    output.i[index] *= scale;
+    output.q[index] *= scale;
+  }
+
+  return output;
+}
+
+function complexDftSlow(samples: ComplexArray): ComplexArray {
   const length = samples.i.length;
   const output = createComplexArray(length);
 
@@ -56,7 +88,7 @@ export function complexDft(samples: ComplexArray): ComplexArray {
   return output;
 }
 
-export function complexIdft(samples: ComplexArray): ComplexArray {
+function complexIdftSlow(samples: ComplexArray): ComplexArray {
   const length = samples.i.length;
   const output = createComplexArray(length);
 
@@ -77,6 +109,73 @@ export function complexIdft(samples: ComplexArray): ComplexArray {
   }
 
   return output;
+}
+
+function transformRadix2(samples: ComplexArray, inverse: boolean): ComplexArray {
+  const length = samples.i.length;
+
+  if (!isPowerOfTwo(length)) {
+    throw new Error("FFT length must be a power of two.");
+  }
+
+  const output = {
+    i: new Float64Array(samples.i),
+    q: new Float64Array(samples.q),
+  };
+  const levels = Math.log2(length);
+
+  for (let index = 0; index < length; index += 1) {
+    const reversed = reverseBits(index, levels);
+
+    if (reversed > index) {
+      const real = output.i[index];
+      const imaginary = output.q[index];
+      output.i[index] = output.i[reversed];
+      output.q[index] = output.q[reversed];
+      output.i[reversed] = real;
+      output.q[reversed] = imaginary;
+    }
+  }
+
+  for (let size = 2; size <= length; size *= 2) {
+    const halfSize = size / 2;
+    const angleStep = (inverse ? 2 : -2) * Math.PI / size;
+
+    for (let start = 0; start < length; start += size) {
+      for (let offset = 0; offset < halfSize; offset += 1) {
+        const angle = angleStep * offset;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const evenIndex = start + offset;
+        const oddIndex = evenIndex + halfSize;
+        const oddReal = output.i[oddIndex] * cos - output.q[oddIndex] * sin;
+        const oddImaginary = output.i[oddIndex] * sin + output.q[oddIndex] * cos;
+        const evenReal = output.i[evenIndex];
+        const evenImaginary = output.q[evenIndex];
+
+        output.i[evenIndex] = evenReal + oddReal;
+        output.q[evenIndex] = evenImaginary + oddImaginary;
+        output.i[oddIndex] = evenReal - oddReal;
+        output.q[oddIndex] = evenImaginary - oddImaginary;
+      }
+    }
+  }
+
+  return output;
+}
+
+function reverseBits(value: number, width: number): number {
+  let reversed = 0;
+
+  for (let bit = 0; bit < width; bit += 1) {
+    reversed = (reversed << 1) | ((value >>> bit) & 1);
+  }
+
+  return reversed;
+}
+
+function isPowerOfTwo(value: number): boolean {
+  return value > 0 && (value & (value - 1)) === 0;
 }
 
 export function normalizeAveragePower(samples: ComplexArray): ComplexArray {

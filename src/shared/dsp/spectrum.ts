@@ -1,3 +1,5 @@
+import { complexDft, createComplexArray, type ComplexArray } from "./complex";
+
 export type Spectrum = {
   frequency: Float64Array;
   magnitudeDb: Float64Array;
@@ -15,24 +17,22 @@ type WelchPeriodogramOptions = {
 };
 
 const hannWindowCache = new Map<number, Float64Array>();
-const twiddleTableCache = new Map<string, { cos: Float64Array; sin: Float64Array }>();
 
 export function computeSpectrumDb(samples: Float64Array, fftSize = 512): Spectrum {
   const frequency = new Float64Array(fftSize);
   const magnitudeDb = new Float64Array(fftSize);
+  const fftInput = createComplexArray(fftSize);
+  const copyLength = Math.min(samples.length, fftSize);
   let peakMagnitudeDb = -Infinity;
 
+  for (let index = 0; index < copyLength; index += 1) {
+    fftInput.i[index] = samples[index];
+  }
+
+  const spectrum = complexDft(fftInput);
+
   for (let bin = 0; bin < fftSize; bin += 1) {
-    let real = 0;
-    let imaginary = 0;
-
-    for (let index = 0; index < samples.length; index += 1) {
-      const angle = (-2 * Math.PI * bin * index) / fftSize;
-      real += samples[index] * Math.cos(angle);
-      imaginary += samples[index] * Math.sin(angle);
-    }
-
-    const magnitude = Math.sqrt(real * real + imaginary * imaginary);
+    const magnitude = Math.hypot(spectrum.i[bin], spectrum.q[bin]);
     frequency[bin] = bin < fftSize / 2 ? bin / fftSize : (bin - fftSize) / fftSize;
     magnitudeDb[bin] = 20 * Math.log10(Math.max(magnitude, 1e-10));
     peakMagnitudeDb = Math.max(peakMagnitudeDb, magnitudeDb[bin]);
@@ -61,7 +61,6 @@ export function computeWelchPeriodogramDb(
   const frequency = new Float64Array(fftSize);
   const power = new Float64Array(fftSize);
   const window = getHannWindow(safeSegmentSize);
-  const twiddle = getDftTwiddleTable(fftSize, safeSegmentSize);
   const windowPower = Array.from(window).reduce(
     (sum, value) => sum + value * value,
     0,
@@ -74,20 +73,13 @@ export function computeWelchPeriodogramDb(
     start += step
   ) {
     segmentCount += 1;
+    const segment = createComplexArray(fftSize);
 
-    for (let bin = 0; bin < fftSize; bin += 1) {
-      let real = 0;
-      let imaginary = 0;
-
-      for (let index = 0; index < safeSegmentSize; index += 1) {
-        const sample = samples[start + index] * window[index];
-        const twiddleIndex = bin * safeSegmentSize + index;
-        real += sample * twiddle.cos[twiddleIndex];
-        imaginary += sample * twiddle.sin[twiddleIndex];
-      }
-
-      power[bin] += (real * real + imaginary * imaginary) / windowPower;
+    for (let index = 0; index < safeSegmentSize; index += 1) {
+      segment.i[index] = samples[start + index] * window[index];
     }
+
+    accumulateSpectrumPower(power, complexDft(segment), windowPower);
   }
 
   const divisor = Math.max(segmentCount, 1);
@@ -124,7 +116,6 @@ export function computeComplexWelchPeriodogramDb(
   const frequency = new Float64Array(fftSize);
   const power = new Float64Array(fftSize);
   const window = getHannWindow(safeSegmentSize);
-  const twiddle = getDftTwiddleTable(fftSize, safeSegmentSize);
   const windowPower = Array.from(window).reduce(
     (sum, value) => sum + value * value,
     0,
@@ -137,23 +128,14 @@ export function computeComplexWelchPeriodogramDb(
     start += step
   ) {
     segmentCount += 1;
+    const segment = createComplexArray(fftSize);
 
-    for (let bin = 0; bin < fftSize; bin += 1) {
-      let real = 0;
-      let imaginary = 0;
-
-      for (let index = 0; index < safeSegmentSize; index += 1) {
-        const sampleI = samples.i[start + index] * window[index];
-        const sampleQ = samples.q[start + index] * window[index];
-        const twiddleIndex = bin * safeSegmentSize + index;
-        const cos = twiddle.cos[twiddleIndex];
-        const sin = twiddle.sin[twiddleIndex];
-        real += sampleI * cos - sampleQ * sin;
-        imaginary += sampleI * sin + sampleQ * cos;
-      }
-
-      power[bin] += (real * real + imaginary * imaginary) / windowPower;
+    for (let index = 0; index < safeSegmentSize; index += 1) {
+      segment.i[index] = samples.i[start + index] * window[index];
+      segment.q[index] = samples.q[start + index] * window[index];
     }
+
+    accumulateSpectrumPower(power, complexDft(segment), windowPower);
   }
 
   const divisor = Math.max(segmentCount, 1);
@@ -187,6 +169,18 @@ function fftShift(values: Float64Array): Float64Array {
   return shifted;
 }
 
+function accumulateSpectrumPower(
+  power: Float64Array,
+  spectrum: ComplexArray,
+  windowPower: number,
+) {
+  for (let bin = 0; bin < power.length; bin += 1) {
+    const real = spectrum.i[bin];
+    const imaginary = spectrum.q[bin];
+    power[bin] += (real * real + imaginary * imaginary) / windowPower;
+  }
+}
+
 function getHannWindow(length: number): Float64Array {
   const cached = hannWindowCache.get(length);
 
@@ -208,32 +202,4 @@ function getHannWindow(length: number): Float64Array {
 
   hannWindowCache.set(length, window);
   return window;
-}
-
-function getDftTwiddleTable(
-  fftSize: number,
-  segmentSize: number,
-): { cos: Float64Array; sin: Float64Array } {
-  const cacheKey = `${fftSize}:${segmentSize}`;
-  const cached = twiddleTableCache.get(cacheKey);
-
-  if (cached) {
-    return cached;
-  }
-
-  const cos = new Float64Array(fftSize * segmentSize);
-  const sin = new Float64Array(fftSize * segmentSize);
-
-  for (let bin = 0; bin < fftSize; bin += 1) {
-    for (let index = 0; index < segmentSize; index += 1) {
-      const tableIndex = bin * segmentSize + index;
-      const angle = (-2 * Math.PI * bin * index) / fftSize;
-      cos[tableIndex] = Math.cos(angle);
-      sin[tableIndex] = Math.sin(angle);
-    }
-  }
-
-  const twiddle = { cos, sin };
-  twiddleTableCache.set(cacheKey, twiddle);
-  return twiddle;
 }
