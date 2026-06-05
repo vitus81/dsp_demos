@@ -19,5 +19,8 @@ describe("demoRegistry", () => {
     expect(getDemoById("interpolation-x2")?.title).toBe(
       "Interpolation x2: repeat vs zero-stuff",
     );
+    expect(getDemoById("agc-gain-step")?.title).toBe(
+      "AGC Gain Step Explorer",
+    );
   });
 });
