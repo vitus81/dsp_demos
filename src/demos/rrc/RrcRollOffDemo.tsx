@@ -1,13 +1,19 @@
 import { useMemo, useState } from "react";
 import { convolve } from "../../shared/dsp/convolution";
 import { buildEyeDiagram } from "../../shared/dsp/eye";
-import { generateQpskSymbols, oversampleSymbols } from "../../shared/dsp/qpsk";
+import {
+  generateSymbols,
+  oversampleSymbols,
+  oversampleSymbolsWithQuadratureDelay,
+  type DigitalModulation,
+} from "../../shared/dsp/qpsk";
 import { createRrcFilter } from "../../shared/dsp/rrc";
 import { computeSpectrumDb } from "../../shared/dsp/spectrum";
 import { PlotPanel } from "../../shared/plot/PlotPanel";
 import { ParameterSlider } from "../../shared/ui/ParameterSlider";
 
 type RrcDemoParams = {
+  modulation: RrcModulation;
   rolloff: number;
   samplesPerSymbol: number;
   spanSymbols: number;
@@ -15,10 +21,16 @@ type RrcDemoParams = {
   seed: number;
 };
 
+type RrcModulation = DigitalModulation | "OQPSK";
+
+const MODULATION_OPTIONS: RrcModulation[] = ["QPSK", "16-QAM", "OQPSK"];
 const SYMBOL_RATE = 1;
+const QPSK_AXIS_LIMIT = Math.SQRT1_2;
+const QAM16_AXIS_LIMIT = 3 / Math.sqrt(10);
 
 export function RrcRollOffDemo() {
   const [params, setParams] = useState<RrcDemoParams>({
+    modulation: "QPSK",
     rolloff: 0.35,
     samplesPerSymbol: 8,
     spanSymbols: 32,
@@ -98,10 +110,29 @@ export function RrcRollOffDemo() {
       <div className="workbench-grid">
         <aside className="control-panel">
           <h2>Parameters</h2>
+          <label className="parameter-control">
+            <span className="parameter-label">
+              Modulation
+              <strong>{params.modulation}</strong>
+            </span>
+            <select
+              className="parameter-select"
+              value={params.modulation}
+              onChange={(event) =>
+                updateParam("modulation", event.target.value as RrcModulation)
+              }
+            >
+              {MODULATION_OPTIONS.map((modulation) => (
+                <option key={modulation} value={modulation}>
+                  {modulation}
+                </option>
+              ))}
+            </select>
+          </label>
           <ParameterSlider
             label="Roll-off alpha"
             value={params.rolloff}
-            min={0}
+            min={0.05}
             max={1}
             step={0.05}
             onChange={(value) => updateParam("rolloff", value)}
@@ -111,7 +142,7 @@ export function RrcRollOffDemo() {
             value={params.samplesPerSymbol}
             min={4}
             max={16}
-            step={1}
+            step={2}
             onChange={(value) => updateParam("samplesPerSymbol", value)}
           />
           <ParameterSlider
@@ -149,6 +180,8 @@ export function RrcRollOffDemo() {
             title="RRC impulse response"
             xLabel="Symbols"
             yLabel="Amplitude"
+            xRange={[-32, 32]}
+            yRange={[-0.1, 0.5]}
             data={[
               {
                 x: simulation.filterTime,
@@ -179,6 +212,8 @@ export function RrcRollOffDemo() {
             title="I/Q waveform"
             xLabel="Symbols"
             yLabel="Amplitude"
+            xRange={[0, 24]}
+            yRange={[-0.8, 0.8]}
             data={[
               {
                 name: "I",
@@ -202,6 +237,9 @@ export function RrcRollOffDemo() {
             title="IQ trajectory"
             xLabel="In-phase"
             yLabel="Quadrature"
+            xRange={[-simulation.iqAxisLimit, simulation.iqAxisLimit]}
+            yRange={[-simulation.iqAxisLimit, simulation.iqAxisLimit]}
+            squareAxes
             data={[
               {
                 name: "Filtered samples",
@@ -239,8 +277,19 @@ export function RrcRollOffDemo() {
 
 function runRrcSimulation(params: RrcDemoParams) {
   const sampleRate = SYMBOL_RATE * params.samplesPerSymbol;
-  const symbols = generateQpskSymbols(params.symbolCount, params.seed);
-  const oversampled = oversampleSymbols(symbols, params.samplesPerSymbol);
+  const symbols = generateSymbols(
+    params.symbolCount,
+    params.seed,
+    params.modulation === "16-QAM" ? "16-QAM" : "QPSK",
+  );
+  const oversampled =
+    params.modulation === "OQPSK"
+      ? oversampleSymbolsWithQuadratureDelay(
+          symbols,
+          params.samplesPerSymbol,
+          params.samplesPerSymbol / 2,
+        )
+      : oversampleSymbols(symbols, params.samplesPerSymbol);
   const filterTaps = createRrcFilter({
     rolloff: params.rolloff,
     samplesPerSymbol: params.samplesPerSymbol,
@@ -268,6 +317,8 @@ function runRrcSimulation(params: RrcDemoParams) {
       (frequency) => frequency * params.samplesPerSymbol,
     ),
     spectrumMagnitudeDb: Array.from(spectrum.magnitudeDb),
+    iqAxisLimit:
+      params.modulation === "16-QAM" ? QAM16_AXIS_LIMIT : QPSK_AXIS_LIMIT,
     waveformTime: Array.from(
       { length: waveformSampleCount },
       (_, index) => index / sampleRate,

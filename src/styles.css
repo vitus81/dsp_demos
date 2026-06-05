@@ -302,6 +302,8 @@ input[type="range"] {
 }
 
 .plot-panel {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   padding: 14px;
 }
@@ -310,8 +312,23 @@ input[type="range"] {
   grid-column: 1 / -1;
 }
 
+.plot-surface-frame {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  width: 100%;
+}
+
+.plot-surface-frame.square-axes {
+  justify-content: center;
+}
+
+.plot-surface-frame.square-axes .plot-surface {
+  width: auto;
+}
+
 .plot-surface {
-  height: 100%;
   min-height: 260px;
   width: 100%;
 }

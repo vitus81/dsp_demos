@@ -10,7 +10,25 @@ vi.mock("plotly.js-dist-min", () => ({
 }));
 
 class ResizeObserverMock {
-  observe() {}
+  private callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
+  observe(target: Element) {
+    const rect = target.getBoundingClientRect();
+    this.callback(
+      [
+        {
+          target,
+          contentRect: rect,
+        } as ResizeObserverEntry,
+      ],
+      this,
+    );
+  }
+
   unobserve() {}
   disconnect() {}
 }

@@ -3,6 +3,11 @@ export type Spectrum = {
   magnitudeDb: Float64Array;
 };
 
+type ComplexSamples = {
+  i: Float64Array;
+  q: Float64Array;
+};
+
 type WelchPeriodogramOptions = {
   fftSize?: number;
   segmentSize?: number;
@@ -79,6 +84,72 @@ export function computeWelchPeriodogramDb(
         const twiddleIndex = bin * safeSegmentSize + index;
         real += sample * twiddle.cos[twiddleIndex];
         imaginary += sample * twiddle.sin[twiddleIndex];
+      }
+
+      power[bin] += (real * real + imaginary * imaginary) / windowPower;
+    }
+  }
+
+  const divisor = Math.max(segmentCount, 1);
+  let peakPowerDb = -Infinity;
+  const powerDb = new Float64Array(fftSize);
+
+  for (let bin = 0; bin < fftSize; bin += 1) {
+    frequency[bin] = bin < fftSize / 2 ? bin / fftSize : (bin - fftSize) / fftSize;
+    powerDb[bin] = 10 * Math.log10(Math.max(power[bin] / divisor, 1e-20));
+    peakPowerDb = Math.max(peakPowerDb, powerDb[bin]);
+  }
+
+  for (let bin = 0; bin < fftSize; bin += 1) {
+    powerDb[bin] -= peakPowerDb;
+  }
+
+  return {
+    frequency: fftShift(frequency),
+    magnitudeDb: fftShift(powerDb),
+  };
+}
+
+export function computeComplexWelchPeriodogramDb(
+  samples: ComplexSamples,
+  {
+    fftSize = 512,
+    segmentSize = fftSize,
+    overlapRatio = 0.5,
+  }: WelchPeriodogramOptions = {},
+): Spectrum {
+  const sampleLength = Math.min(samples.i.length, samples.q.length);
+  const safeSegmentSize = Math.min(segmentSize, sampleLength, fftSize);
+  const step = Math.max(1, Math.round(safeSegmentSize * (1 - overlapRatio)));
+  const frequency = new Float64Array(fftSize);
+  const power = new Float64Array(fftSize);
+  const window = getHannWindow(safeSegmentSize);
+  const twiddle = getDftTwiddleTable(fftSize, safeSegmentSize);
+  const windowPower = Array.from(window).reduce(
+    (sum, value) => sum + value * value,
+    0,
+  );
+  let segmentCount = 0;
+
+  for (
+    let start = 0;
+    start + safeSegmentSize <= sampleLength;
+    start += step
+  ) {
+    segmentCount += 1;
+
+    for (let bin = 0; bin < fftSize; bin += 1) {
+      let real = 0;
+      let imaginary = 0;
+
+      for (let index = 0; index < safeSegmentSize; index += 1) {
+        const sampleI = samples.i[start + index] * window[index];
+        const sampleQ = samples.q[start + index] * window[index];
+        const twiddleIndex = bin * safeSegmentSize + index;
+        const cos = twiddle.cos[twiddleIndex];
+        const sin = twiddle.sin[twiddleIndex];
+        real += sampleI * cos - sampleQ * sin;
+        imaginary += sampleI * sin + sampleQ * cos;
       }
 
       power[bin] += (real * real + imaginary * imaginary) / windowPower;
