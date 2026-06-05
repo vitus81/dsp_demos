@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import Plotly from "plotly.js-dist-min";
-import { SingleCarrierOfdmDemo } from "./SingleCarrierOfdmDemo";
+import {
+  SIMULATION_BLOCKS,
+  SingleCarrierOfdmDemo,
+} from "./SingleCarrierOfdmDemo";
 
 vi.mock("plotly.js-dist-min", () => ({
   default: {
@@ -22,7 +25,9 @@ describe("SingleCarrierOfdmDemo", () => {
     expect(screen.getByLabelText(/modulation/i)).toHaveValue("QPSK");
     expect(screen.getByLabelText(/RRC roll-off/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Active subcarriers/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Blocks/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Blocks/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Blocks")).toBeInTheDocument();
+    expect(screen.getByText(String(SIMULATION_BLOCKS))).toBeInTheDocument();
     expect(screen.getByText("IQ magnitude histogram")).toBeInTheDocument();
     expect(screen.getAllByText(/cyclic prefix/i)).toHaveLength(2);
     expect(screen.getByText(/centered around DC/i)).toBeInTheDocument();

@@ -15,7 +15,6 @@ type SingleCarrierOfdmParams = {
   seed: number;
   rolloff: number;
   activeSubcarriers: number;
-  blockCount: number;
   modulation: DigitalModulation;
 };
 
@@ -29,6 +28,7 @@ const MODULATION_OPTIONS: DigitalModulation[] = ["QPSK", "16-QAM"];
 
 const SPECTRUM_Y_RANGE: [number, number] = [-80, 5];
 const ENVELOPE_Y_RANGE: [number, number] = [0, 3];
+export const SIMULATION_BLOCKS = 1000;
 
 export function SingleCarrierOfdmDemo() {
   const [params, setParams] = useState<SingleCarrierOfdmParams>({
@@ -36,7 +36,6 @@ export function SingleCarrierOfdmDemo() {
     seed: 17,
     rolloff: 0.25,
     activeSubcarriers: 32,
-    blockCount: 96,
     modulation: "QPSK",
   });
 
@@ -46,12 +45,11 @@ export function SingleCarrierOfdmDemo() {
         seed: params.seed,
         rolloff: params.rolloff,
         activeSubcarriers: params.activeSubcarriers,
-        blockCount: params.blockCount,
+        blockCount: SIMULATION_BLOCKS,
         modulation: params.modulation,
       }),
     [
       params.activeSubcarriers,
-      params.blockCount,
       params.modulation,
       params.rolloff,
       params.seed,
@@ -199,14 +197,6 @@ export function SingleCarrierOfdmDemo() {
             step={4}
             onChange={(value) => updateParam("activeSubcarriers", value)}
           />
-          <ParameterSlider
-            label="Blocks"
-            value={params.blockCount}
-            min={32}
-            max={160}
-            step={16}
-            onChange={(value) => updateParam("blockCount", value)}
-          />
 
           <div className="metric-list">
             {visibleWaveforms.map((waveform) => (
@@ -222,6 +212,10 @@ export function SingleCarrierOfdmDemo() {
             <div>
               <span>Nominal bandwidth</span>
               <strong>{visibleWaveforms[0]?.nominalBandwidth.toFixed(2)}</strong>
+            </div>
+            <div>
+              <span>Blocks</span>
+              <strong>{SIMULATION_BLOCKS}</strong>
             </div>
             <div>
               <span>Seed</span>
