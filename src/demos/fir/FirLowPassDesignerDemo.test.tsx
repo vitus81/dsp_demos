@@ -39,10 +39,16 @@ describe("FirLowPassDesignerDemo", () => {
       "1",
     );
     expect(screen.getByLabelText(/window/i)).toHaveValue("Hamming");
+    expect(screen.queryByLabelText(/kaiser beta/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/word length/i)).toHaveValue("16");
     expect(screen.getByLabelText(/fractional bits/i)).toBeInTheDocument();
     expect(screen.getByText("31 samples")).toBeInTheDocument();
+    expect(screen.getByText("1 dB bandwidth")).toBeInTheDocument();
+    expect(screen.getByText("3 dB bandwidth")).toBeInTheDocument();
     expect(screen.getByText("Q(1.14)")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Passband ripple" }),
+    ).toBeInTheDocument();
     const coefficients = screen.getByLabelText(
       /comma-separated coefficients/i,
     ) as HTMLTextAreaElement;
@@ -91,5 +97,28 @@ describe("FirLowPassDesignerDemo", () => {
 
     expect(exactInput).toHaveValue(64);
     expect(slider).toHaveValue("64");
+  });
+
+  it("shows Kaiser beta only when using the Kaiser window", () => {
+    render(<FirLowPassDesignerDemo />);
+
+    fireEvent.change(screen.getByLabelText(/window/i), {
+      target: { value: "Kaiser" },
+    });
+
+    expect(screen.getByLabelText(/window/i)).toHaveValue("Kaiser");
+    expect(screen.getByLabelText(/kaiser beta/i)).toHaveValue("8");
+
+    fireEvent.change(screen.getByLabelText(/kaiser beta/i), {
+      target: { value: "12" },
+    });
+
+    expect(screen.getByLabelText(/kaiser beta/i)).toHaveValue("12");
+
+    fireEvent.change(screen.getByLabelText(/window/i), {
+      target: { value: "Blackman" },
+    });
+
+    expect(screen.queryByLabelText(/kaiser beta/i)).not.toBeInTheDocument();
   });
 });

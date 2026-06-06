@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createWindowedLowPassFir,
+  findBandwidthAtDb,
   getFirGroupDelay,
   getIntegerBits,
   quantizeFirCoefficients,
@@ -35,6 +36,22 @@ describe("createWindowedLowPassFir", () => {
     expect(sum).toBeCloseTo(1, 12);
     expect(taps[0]).toBeCloseTo(taps[taps.length - 1], 12);
     expect(taps[10]).toBeCloseTo(taps[taps.length - 11], 12);
+  });
+
+  it("creates a symmetric unity-gain Kaiser-windowed low-pass FIR", () => {
+    const taps = createWindowedLowPassFir({
+      cutoff: 0.22,
+      tapCount: 80,
+      window: "Kaiser",
+      kaiserBeta: 10,
+    });
+
+    const sum = Array.from(taps).reduce((total, tap) => total + tap, 0);
+
+    expect(taps).toHaveLength(80);
+    expect(sum).toBeCloseTo(1, 12);
+    expect(taps[0]).toBeCloseTo(taps[taps.length - 1], 12);
+    expect(taps[20]).toBeCloseTo(taps[taps.length - 21], 12);
   });
 
   it("reports integer and fractional group delay from tap count", () => {
@@ -95,5 +112,38 @@ describe("quantizeFirCoefficients", () => {
   it("computes Q integer bits from word length and fractional bits", () => {
     expect(getIntegerBits(16, 14)).toBe(1);
     expect(getIntegerBits(8, 7)).toBe(0);
+  });
+});
+
+describe("findBandwidthAtDb", () => {
+  it("finds an exact threshold crossing", () => {
+    const bandwidth = findBandwidthAtDb(
+      [0, 0.1, 0.2],
+      [0, -1, -8],
+      -1,
+    );
+
+    expect(bandwidth).toEqual({ frequency: 0.1, crossed: true });
+  });
+
+  it("interpolates between FFT bins", () => {
+    const bandwidth = findBandwidthAtDb(
+      [0, 0.1, 0.2],
+      [0, -0.5, -1.5],
+      -1,
+    );
+
+    expect(bandwidth.crossed).toBe(true);
+    expect(bandwidth.frequency).toBeCloseTo(0.15, 12);
+  });
+
+  it("reports when the threshold is not crossed", () => {
+    const bandwidth = findBandwidthAtDb(
+      [0, 0.1, 0.2],
+      [0, -0.2, -0.5],
+      -1,
+    );
+
+    expect(bandwidth).toEqual({ frequency: null, crossed: false });
   });
 });

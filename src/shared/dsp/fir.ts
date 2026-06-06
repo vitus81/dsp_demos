@@ -1,9 +1,15 @@
-export type FirWindow = "Rectangular" | "Hann" | "Hamming" | "Blackman";
+export type FirWindow =
+  | "Rectangular"
+  | "Hann"
+  | "Hamming"
+  | "Blackman"
+  | "Kaiser";
 
 export type LowPassFirOptions = {
   cutoff: number;
   tapCount: number;
   window: FirWindow;
+  kaiserBeta?: number;
 };
 
 export type QuantizedFirOptions = {
@@ -19,17 +25,24 @@ export type QuantizedFirResult = {
   clippedCount: number;
 };
 
+export type BandwidthCrossing = {
+  frequency: number | null;
+  crossed: boolean;
+};
+
 export const FIR_WINDOWS: FirWindow[] = [
   "Rectangular",
   "Hann",
   "Hamming",
   "Blackman",
+  "Kaiser",
 ];
 
 export function createWindowedLowPassFir({
   cutoff,
   tapCount,
   window,
+  kaiserBeta = 8,
 }: LowPassFirOptions): Float64Array {
   if (cutoff <= 0 || cutoff >= 0.5) {
     throw new RangeError("cutoff must be between 0 and 0.5 cycles/sample");
@@ -46,7 +59,7 @@ export function createWindowedLowPassFir({
   for (let index = 0; index < tapCount; index += 1) {
     const offset = index - center;
     const ideal = offset === 0 ? 2 * cutoff : Math.sin(2 * Math.PI * cutoff * offset) / (Math.PI * offset);
-    const value = ideal * windowValue(window, index, tapCount);
+    const value = ideal * windowValue(window, index, tapCount, kaiserBeta);
 
     taps[index] = value;
     sum += value;
@@ -111,7 +124,50 @@ export function getFirGroupDelay(tapCount: number): number {
   return (tapCount - 1) / 2;
 }
 
-function windowValue(window: FirWindow, index: number, length: number): number {
+export function findBandwidthAtDb(
+  frequency: readonly number[],
+  magnitudeDb: readonly number[],
+  thresholdDb: number,
+): BandwidthCrossing {
+  const length = Math.min(frequency.length, magnitudeDb.length);
+
+  for (let index = 0; index < length; index += 1) {
+    if (magnitudeDb[index] > thresholdDb) {
+      continue;
+    }
+
+    if (index === 0) {
+      return { frequency: frequency[index], crossed: true };
+    }
+
+    const previousFrequency = frequency[index - 1];
+    const currentFrequency = frequency[index];
+    const previousMagnitude = magnitudeDb[index - 1];
+    const currentMagnitude = magnitudeDb[index];
+    const magnitudeDelta = currentMagnitude - previousMagnitude;
+
+    if (magnitudeDelta === 0) {
+      return { frequency: currentFrequency, crossed: true };
+    }
+
+    const ratio = (thresholdDb - previousMagnitude) / magnitudeDelta;
+
+    return {
+      frequency:
+        previousFrequency + ratio * (currentFrequency - previousFrequency),
+      crossed: true,
+    };
+  }
+
+  return { frequency: null, crossed: false };
+}
+
+function windowValue(
+  window: FirWindow,
+  index: number,
+  length: number,
+  kaiserBeta: number,
+): number {
   if (length === 1) {
     return 1;
   }
@@ -127,5 +183,28 @@ function windowValue(window: FirWindow, index: number, length: number): number {
       return 0.54 - 0.46 * Math.cos(phase);
     case "Blackman":
       return 0.42 - 0.5 * Math.cos(phase) + 0.08 * Math.cos(2 * phase);
+    case "Kaiser": {
+      const ratio = (2 * index) / (length - 1) - 1;
+      const argument = kaiserBeta * Math.sqrt(Math.max(0, 1 - ratio * ratio));
+
+      return modifiedBesselI0(argument) / modifiedBesselI0(kaiserBeta);
+    }
   }
+}
+
+function modifiedBesselI0(value: number): number {
+  let sum = 1;
+  let term = 1;
+  const scaled = (value * value) / 4;
+
+  for (let order = 1; order <= 32; order += 1) {
+    term *= scaled / (order * order);
+    sum += term;
+
+    if (term < sum * 1e-14) {
+      break;
+    }
+  }
+
+  return sum;
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   FIR_WINDOWS,
   createWindowedLowPassFir,
+  findBandwidthAtDb,
   getFirGroupDelay,
   getIntegerBits,
   quantizeFirCoefficients,
@@ -15,6 +16,7 @@ type FirDesignerParams = {
   cutoff: number;
   tapCount: number;
   window: FirWindow;
+  kaiserBeta: number;
   wordLength: number;
   fractionalBits: number;
   exportFormat: ExportFormat;
@@ -29,6 +31,7 @@ const DEFAULT_PARAMS: FirDesignerParams = {
   cutoff: 0.16,
   tapCount: 63,
   window: "Hamming",
+  kaiserBeta: 8,
   wordLength: 16,
   fractionalBits: 14,
   exportFormat: "Float",
@@ -189,6 +192,16 @@ export function FirLowPassDesignerDemo() {
               ))}
             </select>
           </label>
+          {params.window === "Kaiser" ? (
+            <ParameterSlider
+              label="Kaiser beta"
+              value={params.kaiserBeta}
+              min={0}
+              max={14}
+              step={0.5}
+              onChange={(value) => updateParam("kaiserBeta", value)}
+            />
+          ) : null}
 
           <h2 className="control-section-heading">Export</h2>
           <label className="parameter-control">
@@ -239,6 +252,14 @@ export function FirLowPassDesignerDemo() {
             <div>
               <span>Group delay</span>
               <strong>{design.groupDelayText} samples</strong>
+            </div>
+            <div>
+              <span>1 dB bandwidth</span>
+              <strong>{design.bandwidth1DbText}</strong>
+            </div>
+            <div>
+              <span>3 dB bandwidth</span>
+              <strong>{design.bandwidth3DbText}</strong>
             </div>
             <div>
               <span>Q format</span>
@@ -311,6 +332,31 @@ export function FirLowPassDesignerDemo() {
               },
             ]}
           />
+          <PlotPanel
+            title="Passband ripple"
+            xLabel="Normalized frequency"
+            yLabel="Magnitude (dB)"
+            xRange={[0, design.passbandEdge]}
+            yRange={[-0.25, 0.05]}
+            data={[
+              {
+                name: "Float",
+                x: design.passbandFrequency,
+                y: design.passbandMagnitudeDb,
+                type: "scatter",
+                mode: "lines",
+                line: { color: "#0f766e", width: 2 },
+              },
+              {
+                name: "Quantized",
+                x: design.passbandQuantizedFrequency,
+                y: design.passbandQuantizedMagnitudeDb,
+                type: "scatter",
+                mode: "lines",
+                line: { color: "#dc2626", width: 1.6, dash: "dot" },
+              },
+            ]}
+          />
           <section className="plot-panel coefficient-panel">
             <h2>Comma-separated coefficients</h2>
             <textarea
@@ -341,6 +387,7 @@ function runFirDesign(params: FirDesignerParams) {
     cutoff: params.cutoff,
     tapCount: params.tapCount,
     window: params.window,
+    kaiserBeta: params.kaiserBeta,
   });
   const quantized = quantizeFirCoefficients(taps, {
     wordLength: params.wordLength,
@@ -356,6 +403,27 @@ function runFirDesign(params: FirDesignerParams) {
     quantizedSpectrum.frequency,
     quantizedSpectrum.magnitudeDb,
   );
+  const passbandEdge = Math.max(0.01, params.cutoff * 0.8);
+  const passbandSpectrum = getBandLimitedSpectrum(
+    positiveSpectrum.frequency,
+    positiveSpectrum.magnitudeDb,
+    passbandEdge,
+  );
+  const passbandQuantizedSpectrum = getBandLimitedSpectrum(
+    positiveQuantizedSpectrum.frequency,
+    positiveQuantizedSpectrum.magnitudeDb,
+    passbandEdge,
+  );
+  const bandwidth1Db = findBandwidthAtDb(
+    positiveSpectrum.frequency,
+    positiveSpectrum.magnitudeDb,
+    -1,
+  );
+  const bandwidth3Db = findBandwidthAtDb(
+    positiveSpectrum.frequency,
+    positiveSpectrum.magnitudeDb,
+    -3,
+  );
   const coefficientText =
     params.exportFormat === "Float"
       ? Array.from(taps, (tap) => tap.toPrecision(10)).join(", ")
@@ -367,11 +435,18 @@ function runFirDesign(params: FirDesignerParams) {
     coefficientText,
     integerBits: getIntegerBits(params.wordLength, params.fractionalBits),
     groupDelayText: formatGroupDelay(getFirGroupDelay(params.tapCount)),
+    bandwidth1DbText: formatBandwidth(bandwidth1Db),
+    bandwidth3DbText: formatBandwidth(bandwidth3Db),
     tapIndex: Array.from(taps, (_, index) => index),
     positiveFrequency: positiveSpectrum.frequency,
     positiveMagnitudeDb: positiveSpectrum.magnitudeDb,
     positiveQuantizedFrequency: positiveQuantizedSpectrum.frequency,
     positiveQuantizedMagnitudeDb: positiveQuantizedSpectrum.magnitudeDb,
+    passbandEdge,
+    passbandFrequency: passbandSpectrum.frequency,
+    passbandMagnitudeDb: passbandSpectrum.magnitudeDb,
+    passbandQuantizedFrequency: passbandQuantizedSpectrum.frequency,
+    passbandQuantizedMagnitudeDb: passbandQuantizedSpectrum.magnitudeDb,
   };
 }
 
@@ -379,6 +454,14 @@ function formatGroupDelay(groupDelay: number): string {
   return Number.isInteger(groupDelay)
     ? groupDelay.toFixed(0)
     : groupDelay.toFixed(1);
+}
+
+function formatBandwidth(bandwidth: { frequency: number | null; crossed: boolean }) {
+  if (!bandwidth.crossed || bandwidth.frequency === null) {
+    return "> 0.5000";
+  }
+
+  return bandwidth.frequency.toFixed(4);
 }
 
 function clampTapCount(value: number): number {
@@ -403,5 +486,26 @@ function getPositiveSpectrum(frequency: Float64Array, magnitudeDb: Float64Array)
   return {
     frequency: positiveFrequency,
     magnitudeDb: positiveMagnitudeDb,
+  };
+}
+
+function getBandLimitedSpectrum(
+  frequency: number[],
+  magnitudeDb: number[],
+  maxFrequency: number,
+) {
+  const limitedFrequency: number[] = [];
+  const limitedMagnitudeDb: number[] = [];
+
+  for (let index = 0; index < frequency.length; index += 1) {
+    if (frequency[index] <= maxFrequency) {
+      limitedFrequency.push(frequency[index]);
+      limitedMagnitudeDb.push(magnitudeDb[index]);
+    }
+  }
+
+  return {
+    frequency: limitedFrequency,
+    magnitudeDb: limitedMagnitudeDb,
   };
 }
