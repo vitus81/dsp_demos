@@ -1,6 +1,7 @@
 import { RrcRollOffDemo } from "./rrc/RrcRollOffDemo";
 import { InterpolationDemo } from "./interpolation/InterpolationDemo";
 import { SingleCarrierOfdmDemo } from "./singleCarrierOfdm/SingleCarrierOfdmDemo";
+import { LiveIqSpectrumDemo } from "./liveIq/LiveIqSpectrumDemo";
 import type { DemoDefinition } from "./demoTypes";
 
 export const demoRegistry: DemoDefinition[] = [
@@ -27,6 +28,14 @@ export const demoRegistry: DemoDefinition[] = [
     description:
       "Compare PAPR, IQ magnitude statistics, and spectrum shape for RRC QPSK, OFDM, and DFT-s-OFDM at matched bandwidth.",
     component: SingleCarrierOfdmDemo,
+  },
+  {
+    id: "live-iq-spectrum",
+    title: "Live IQ Spectrum",
+    category: "General DSP",
+    description:
+      "Connect to a binary WebSocket IQ stream and plot a rolling FFT of signed 16-bit interleaved samples in real time.",
+    component: LiveIqSpectrumDemo,
   },
 ];
 
