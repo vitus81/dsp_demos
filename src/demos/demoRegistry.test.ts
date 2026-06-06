@@ -22,5 +22,6 @@ describe("demoRegistry", () => {
     expect(getDemoById("single-carrier-ofdm")?.title).toBe(
       "Single-Carrier vs OFDM",
     );
+    expect(getDemoById("live-iq-spectrum")?.title).toBe("Live IQ Spectrum");
   });
 });
