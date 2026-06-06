@@ -10,6 +10,7 @@ type PlotPanelProps = {
   yLabel?: string;
   xRange?: [number, number];
   yRange?: [number, number];
+  xScale?: "linear" | "log";
   yScale?: "linear" | "log";
   barMode?: "group" | "overlay";
   showLegend?: boolean;
@@ -24,6 +25,7 @@ export function PlotPanel({
   yLabel,
   xRange,
   yRange,
+  xScale = "linear",
   yScale = "linear",
   barMode,
   showLegend,
@@ -82,7 +84,11 @@ export function PlotPanel({
         font: { color: "#1f2937", family: "Inter, system-ui, sans-serif" },
         xaxis: {
           title: xLabel,
-          range: xRange,
+          type: xScale,
+          range:
+            xScale === "log" && xRange
+              ? [Math.log10(xRange[0]), Math.log10(xRange[1])]
+              : xRange,
           zerolinecolor: "#d1d5db",
           gridcolor: "#edf0f3",
         },
@@ -116,6 +122,7 @@ export function PlotPanel({
     squarePlotOuterWidth,
     xLabel,
     xRange,
+    xScale,
     yLabel,
     yRange,
     yScale,

@@ -332,6 +332,36 @@ input[type="range"] {
   grid-template-columns: 1fr;
 }
 
+.live-audio-grid {
+  grid-template-columns: 1fr;
+}
+
+.audio-device-control {
+  margin-top: 18px;
+}
+
+.audio-level-meter {
+  background: #e5e9ef;
+  border-radius: 8px;
+  height: 12px;
+  margin-top: 18px;
+  overflow: hidden;
+}
+
+.audio-level-meter div {
+  background: #0f766e;
+  height: 100%;
+  transition: width 120ms ease;
+}
+
+.status-message {
+  border-top: 1px solid #e5e9ef;
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 16px 0 0;
+  padding-top: 14px;
+}
+
 .plot-panel {
   display: flex;
   flex-direction: column;

@@ -2,6 +2,7 @@ import { RrcRollOffDemo } from "./rrc/RrcRollOffDemo";
 import { InterpolationDemo } from "./interpolation/InterpolationDemo";
 import { SingleCarrierOfdmDemo } from "./singleCarrierOfdm/SingleCarrierOfdmDemo";
 import { LiveIqSpectrumDemo } from "./liveIq/LiveIqSpectrumDemo";
+import { LiveAudioAnalyzerDemo } from "./liveAudio/LiveAudioAnalyzerDemo";
 import type { DemoDefinition } from "./demoTypes";
 
 export const demoRegistry: DemoDefinition[] = [
@@ -36,6 +37,14 @@ export const demoRegistry: DemoDefinition[] = [
     description:
       "Connect to a binary WebSocket IQ stream and plot a rolling FFT of signed 16-bit interleaved samples in real time.",
     component: LiveIqSpectrumDemo,
+  },
+  {
+    id: "live-audio-analyzer",
+    title: "Live Microphone Audio Analyzer",
+    category: "General DSP",
+    description:
+      "Capture browser microphone audio and inspect its rolling waveform, FFT spectrum, waterfall, and dBFS levels in real time.",
+    component: LiveAudioAnalyzerDemo,
   },
 ];
 

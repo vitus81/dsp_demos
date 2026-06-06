@@ -78,4 +78,35 @@ describe("PlotPanel", () => {
 
     HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
   });
+
+  it("passes logarithmic x-axis ranges to Plotly", async () => {
+    render(
+      <PlotPanel
+        title="Log Frequency"
+        xLabel="Frequency"
+        xScale="log"
+        xRange={[10, 1000]}
+        data={[
+          {
+            x: [10, 100, 1000],
+            y: [0, 1, 0],
+            type: "scatter",
+            mode: "lines",
+          },
+        ]}
+      />,
+    );
+
+    await waitFor(() => {
+      const calls = vi.mocked(Plotly.react).mock.calls;
+      const latestCall = calls[calls.length - 1];
+
+      expect(latestCall?.[2]).toMatchObject({
+        xaxis: {
+          type: "log",
+          range: [1, 3],
+        },
+      });
+    });
+  });
 });
