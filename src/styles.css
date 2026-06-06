@@ -362,6 +362,42 @@ input[type="range"] {
   padding-top: 14px;
 }
 
+.coefficient-panel {
+  grid-column: 1 / -1;
+}
+
+.coefficient-output {
+  background: #f8fafc;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  color: #172033;
+  font-family: "Cascadia Code", Consolas, monospace;
+  line-height: 1.5;
+  min-height: 180px;
+  padding: 12px;
+  resize: vertical;
+  width: 100%;
+}
+
+.coefficient-output:focus {
+  border-color: #0f766e;
+  outline: 2px solid #c5dfda;
+  outline-offset: 2px;
+}
+
+.coefficient-actions {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.coefficient-actions span {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
 .plot-panel {
   display: flex;
   flex-direction: column;

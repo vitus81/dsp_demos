@@ -19,6 +19,9 @@ describe("demoRegistry", () => {
     expect(getDemoById("interpolation-x2")?.title).toBe(
       "Interpolation x2: repeat vs zero-stuff",
     );
+    expect(getDemoById("fir-low-pass-designer")?.title).toBe(
+      "Windowed FIR Low-Pass Designer",
+    );
     expect(getDemoById("single-carrier-ofdm")?.title).toBe(
       "Single-Carrier vs OFDM",
     );

@@ -3,6 +3,7 @@ import { InterpolationDemo } from "./interpolation/InterpolationDemo";
 import { SingleCarrierOfdmDemo } from "./singleCarrierOfdm/SingleCarrierOfdmDemo";
 import { LiveIqSpectrumDemo } from "./liveIq/LiveIqSpectrumDemo";
 import { LiveAudioAnalyzerDemo } from "./liveAudio/LiveAudioAnalyzerDemo";
+import { FirLowPassDesignerDemo } from "./fir/FirLowPassDesignerDemo";
 import type { DemoDefinition } from "./demoTypes";
 
 export const demoRegistry: DemoDefinition[] = [
@@ -21,6 +22,14 @@ export const demoRegistry: DemoDefinition[] = [
     description:
       "Compare repeat and zero-stuff sample preparation before a shared windowed-sinc FIR interpolation filter.",
     component: InterpolationDemo,
+  },
+  {
+    id: "fir-low-pass-designer",
+    title: "Windowed FIR Low-Pass Designer",
+    category: "General DSP",
+    description:
+      "Design a windowed-sinc low-pass FIR, compare floating-point and quantized responses, and copy comma-separated coefficients.",
+    component: FirLowPassDesignerDemo,
   },
   {
     id: "single-carrier-ofdm",
