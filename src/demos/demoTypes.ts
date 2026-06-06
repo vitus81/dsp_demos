@@ -1,6 +1,9 @@
 import type { ComponentType } from "react";
 
-export type DemoCategory = "Digital Communications" | "General DSP";
+export type DemoCategory =
+  | "Filtering and sample rate conversion"
+  | "Digital communications"
+  | "Live spectral analysis";
 
 export type DemoDefinition = {
   id: string;

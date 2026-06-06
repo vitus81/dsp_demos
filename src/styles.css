@@ -107,9 +107,33 @@ h2 {
   margin-bottom: 12px;
 }
 
+h3 {
+  color: #172033;
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+
 p {
   color: #526071;
   line-height: 1.6;
+}
+
+.catalog-sections {
+  display: grid;
+  gap: 28px;
+}
+
+.catalog-section {
+  display: grid;
+  gap: 14px;
+}
+
+.catalog-section-title {
+  border-bottom: 1px solid #d8dee8;
+  color: #101827;
+  font-size: 1.15rem;
+  margin: 0;
+  padding-bottom: 10px;
 }
 
 .demo-grid {

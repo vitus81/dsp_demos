@@ -1,6 +1,12 @@
 import { Link } from "react-router-dom";
 import { demoRegistry } from "../demos/demoRegistry";
 
+const demoCategories = [
+  "Filtering and sample rate conversion",
+  "Digital communications",
+  "Live spectral analysis",
+];
+
 export function DemoCatalog() {
   return (
     <section className="catalog-page">
@@ -13,14 +19,25 @@ export function DemoCatalog() {
         </p>
       </div>
 
-      <div className="demo-grid" aria-label="Available DSP demos">
-        {demoRegistry.map((demo) => (
-          <Link className="demo-card" key={demo.id} to={`/demo/${demo.id}`}>
-            <span className="demo-category">{demo.category}</span>
-            <h2>{demo.title}</h2>
-            <p>{demo.description}</p>
-          </Link>
-        ))}
+      <div className="catalog-sections" aria-label="Available DSP demos">
+        {demoCategories.map((category) => {
+          const demos = demoRegistry.filter((demo) => demo.category === category);
+
+          return (
+            <section className="catalog-section" key={category}>
+              <h2 className="catalog-section-title">{category}</h2>
+              <div className="demo-grid">
+                {demos.map((demo) => (
+                  <Link className="demo-card" key={demo.id} to={`/demo/${demo.id}`}>
+                    <span className="demo-category">{demo.category}</span>
+                    <h3>{demo.title}</h3>
+                    <p>{demo.description}</p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </section>
   );

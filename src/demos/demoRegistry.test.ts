@@ -9,7 +9,9 @@ describe("demoRegistry", () => {
       expect(demo.id).toMatch(/^[a-z0-9-]+$/);
       expect(demo.title).toBeTruthy();
       expect(demo.description).toBeTruthy();
-      expect(demo.category).toMatch(/Digital Communications|General DSP/);
+      expect(demo.category).toMatch(
+        /Filtering and sample rate conversion|Digital communications|Live spectral analysis/,
+      );
       expect(demo.component).toBeTypeOf("function");
     });
   });
